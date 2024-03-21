@@ -209,6 +209,7 @@ def download_folder(
     verify=True,
     user_agent=None,
     skip_download: bool = False,
+    access_token=None
 ) -> Union[List[str], List[GoogleDriveFileToDownload], None]:
     """Downloads entire folder from URL.
 
@@ -262,7 +263,7 @@ def download_folder(
         # We need to use different user agent for folder download c.f., file
         user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"  # NOQA: E501
 
-    sess = _get_session(proxy=proxy, use_cookies=use_cookies, user_agent=user_agent)
+    sess = _get_session(proxy=proxy, use_cookies=use_cookies, user_agent=user_agent, access_token=access_token)
 
     if not quiet:
         print("Retrieving folder contents", file=sys.stderr)
@@ -307,14 +308,21 @@ def download_folder(
                 GoogleDriveFileToDownload(id=id, path=path, local_path=local_path)
             )
         else:
+            if access_token is not None:
+                url = "https://www.googleapis.com/drive/v3/files/{id}?alt=media".format(id=id)
+            else:
+                url = "https://drive.google.com/uc?id=" + id
+
             local_path = download(
-                url="https://drive.google.com/uc?id=" + id,
+                url=url,
                 output=local_path,
                 quiet=quiet,
                 proxy=proxy,
                 speed=speed,
                 use_cookies=use_cookies,
                 verify=verify,
+                access_token=access_token
+
             )
             if local_path is None:
                 if not quiet:

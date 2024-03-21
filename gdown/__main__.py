@@ -122,7 +122,10 @@ def main():
         "--user-agent",
         help="User-Agent to use for downloading file.",
     )
-
+    parser.add_argument(
+        "--access-token",
+        help="Access-token to use for downloading file from api."
+    )
     args = parser.parse_args()
 
     if args.output == "-":
@@ -158,6 +161,7 @@ def main():
                 verify=not args.no_check_certificate,
                 remaining_ok=args.remaining_ok,
                 user_agent=args.user_agent,
+                access_token=args.access_token
             )
         else:
             download(
@@ -173,6 +177,7 @@ def main():
                 resume=args.continue_,
                 format=args.format,
                 user_agent=args.user_agent,
+                access_token=args.access_token
             )
     except FileURLRetrievalError as e:
         print(e, file=sys.stderr)

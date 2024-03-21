@@ -60,6 +60,17 @@ def get_url_from_gdrive_confirmation(contents):
     return url
 
 
+def _get_filename_from_info_link(id, session):
+
+    try:
+        res = session.get("https://www.googleapis.com/drive/v3/files/{id}".format(id=id))
+
+        fileinfo = res.json()
+        return fileinfo['name']
+    except:
+        return None
+
+
 def _get_filename_from_response(response):
     content_disposition = urllib.parse.unquote(response.headers["Content-Disposition"])
 
@@ -76,11 +87,15 @@ def _get_filename_from_response(response):
     return None
 
 
-def _get_session(proxy, use_cookies, user_agent, return_cookies_file=False):
+def _get_session(proxy, use_cookies, user_agent, return_cookies_file=False, access_token=None):
     sess = requests.session()
 
-    sess.headers.update({"User-Agent": user_agent})
+    if access_token is not None:
+        headers = {"User-Agent": user_agent, 'Authorization': "Bearer "+access_token}
+    else:
+        headers = {"User-Agent": user_agent}
 
+    sess.headers.update(headers)
     if proxy is not None:
         sess.proxies = {"http": proxy, "https": proxy}
         print("Using proxy:", proxy, file=sys.stderr)
@@ -112,6 +127,7 @@ def download(
     format=None,
     user_agent=None,
     log_messages=None,
+    access_token=None
 ):
     """Download file from URL.
 
@@ -174,17 +190,22 @@ def download(
         use_cookies=use_cookies,
         user_agent=user_agent,
         return_cookies_file=True,
+        access_token=access_token
     )
 
     gdrive_file_id, is_gdrive_download_link = parse_url(url, warning=not fuzzy)
 
     if fuzzy and gdrive_file_id:
         # overwrite the url with fuzzy match of a file id
-        url = "https://drive.google.com/uc?id={id}".format(id=gdrive_file_id)
+        if access_token is not None:
+            url = "https://www.googleapis.com/drive/v3/files/{id}?alt=media".format(id=gdrive_file_id)
+        else:
+            url = "https://drive.google.com/uc?id={id}".format(id=gdrive_file_id)
         url_origin = url
         is_gdrive_download_link = True
 
     while True:
+
         res = sess.get(url, stream=True, verify=verify)
 
         if not (gdrive_file_id and is_gdrive_download_link):
@@ -266,10 +287,14 @@ def download(
     filename_from_url = None
     if gdrive_file_id and is_gdrive_download_link:
         filename_from_url = _get_filename_from_response(response=res)
+        if filename_from_url is None and access_token is not None:
+
+            filename_from_url = _get_filename_from_info_link(id=gdrive_file_id, session=sess)
     if filename_from_url is None:
         filename_from_url = osp.basename(url)
 
     if output is None:
+
         output = filename_from_url
 
     output_is_path = isinstance(output, str)
